@@ -1043,6 +1043,10 @@ def get_individual_graph_data():
 
 
 # ================= ROUTE ==================
+
+@app.route("/iot")
+def dashboard():
+    return render_template("iot.html")
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
