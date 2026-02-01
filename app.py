@@ -1050,6 +1050,10 @@ app = Flask(__name__)
 # ======================
 # IOT MODULE API
 # ======================
+@app.route("/")
+def home():
+    return "ClimatXPro IoT Module is Running Successfully!"
+
 @app.route("/api/iot/sensor", methods=["GET"])
 def iot_sensor():
     temp = request.args.get("temp")
