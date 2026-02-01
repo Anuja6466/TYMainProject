@@ -1047,32 +1047,25 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# ======================
-# IOT MODULE API
-# ======================
+# store latest data
+sensor_data = {}
+
+# Endpoint ESP32 will POST data to
+@app.route("/api/sensor", methods=["POST"])
+def receive_sensor_data():
+    global sensor_data
+    sensor_data = request.json  # store the latest temp & humidity
+    return jsonify({"status": "success"})
+
+# Endpoint to get latest data (for dashboard / browser)
+@app.route("/api/latest", methods=["GET"])
+def get_latest():
+    return jsonify(sensor_data)
+
+# Optional root route
 @app.route("/")
 def home():
     return "ClimatXPro IoT Module is Running Successfully!"
 
-@app.route("/api/iot/sensor", methods=["GET"])
-def iot_sensor():
-    temp = request.args.get("temp")
-    hum = request.args.get("hum")
-
-    print("IoT Data Received")
-    print("Temperature:", temp)
-    print("Humidity:", hum)
-
-    # OPTIONAL: store in database here
-
-    return jsonify({
-        "status": "success",
-        "temperature": temp,
-        "humidity": hum
-    })
-
-# ======================
-# MAIN APP
-# ======================
 if __name__ == "__main__":
     app.run(debug=True)
