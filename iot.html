@@ -1,255 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Live IoT Data</title>
-
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <style>
-        body {
-            font-family: "Segoe UI", sans-serif;
-            background: #f5f7fb;
-            margin: 0;
-        }
-
-        .iot-header {
-            background: linear-gradient(135deg, #1e2a78, #3949ab);
-            color: white;
-            padding: 30px;
-            text-align: center;
-            border-radius: 0 0 20px 20px;
-        }
-
-        .connect-box {
-            background: white;
-            width: 60%;
-            margin: 80px auto;
-            padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-
-        .connect-btn {
-            background: linear-gradient(135deg, #1e2a78, #3949ab);
-            color: white;
-            padding: 15px 35px;
-            border-radius: 30px;
-            text-decoration: none;
-            font-size: 18px;
-            display: inline-block;
-            margin-top: 20px;
-        }
-
-        .sensor-grid {
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-            margin: 50px;
-        }
-
-        .sensor-card {
-            background: white;
-            width: 280px;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-
-        .sensor-icon {
-            font-size: 40px;
-            color: #3f51b5;
-        }
-
-        .metric-value {
-            font-size: 32px;
-            font-weight: bold;
-            margin-top: 10px;
-        }
-
-        .graph-box {
-            background: white;
-            width: 90%;
-            margin: 40px auto;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-        }
-
-        .graph-row {
-            display: flex;
-            gap: 30px;
-            margin: 40px;
-        }
-
-        canvas {
-            height: 350px !important;
-        }
-
-        .alert {
-            color: red;
-            text-align: center;
-            font-weight: bold;
-            margin-top: 15px;
-        }
-        .center-graph {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-    </style>
+    <title>ClimatXPro IoT Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
-
 <body>
+    <h1>ClimatXPro IoT Dashboard</h1>
+    <div id="temp">Temperature: -- °C</div>
+    <div id="hum">Humidity: -- %</div>
+    <div id="graph"></div>
 
-<div class="iot-header">
-    <h1>Live IoT Sensor Monitoring</h1>
-    <p>ESP32 + DHT22 Real-Time Data</p>
-</div>
+    <script>
+        let tempData = [];
+        let humData = [];
+        let timeData = [];
 
-{% if not connected %}
-<div class="connect-box">
-    <h2>Connect IoT Sensor</h2>
-    <p>Click below to connect ESP32 with DHT22 sensor</p>
-    <a href="/iot?connect=1" class="connect-btn">🔌 Connect Sensor</a>
-</div>
-{% endif %}
+        function fetchData() {
+            fetch('/api/latest')
+                .then(response => response.json())
+                .then(data => {
+                    const now = new Date().toLocaleTimeString();
+                    tempData.push(data.temperature);
+                    humData.push(data.humidity);
+                    timeData.push(now);
 
-{% if connected %}
-<div class="alert">{{ alert }}</div>
+                    document.getElementById('temp').innerText = "Temperature: " + data.temperature + " °C";
+                    document.getElementById('hum').innerText = "Humidity: " + data.humidity + " %";
 
-<div class="sensor-grid">
-    <div class="sensor-card">
-        <div class="sensor-icon"><i class="fas fa-temperature-high"></i></div>
-        <h3>Temperature</h3>
-        <div class="metric-value">{{ temperature }} °C</div>
-    </div>
+                    const trace1 = { x: timeData, y: tempData, name: 'Temperature', mode: 'lines+markers' };
+                    const trace2 = { x: timeData, y: humData, name: 'Humidity', mode: 'lines+markers' };
 
-    <div class="sensor-card">
-        <div class="sensor-icon"><i class="fas fa-water"></i></div>
-        <h3>Humidity</h3>
-        <div class="metric-value">{{ humidity }} %</div>
-    </div>
-</div>
-
-<div class="center-graph">
-    <div class="graph-box" style="width:90%;">
-        <h2 style="text-align:center;">Daily Average Temperature & Humidity</h2>
-        <canvas id="dailyChart"></canvas>
-    </div>
-</div>
-
-<div class="graph-row">
-    <div class="graph-box">
-        <h3 style="text-align:center;">Temperature Trend</h3>
-        <canvas id="tempChart"></canvas>
-    </div>
-
-    <div class="graph-box">
-        <h3 style="text-align:center;">Humidity Trend</h3>
-        <canvas id="humidityChart"></canvas>
-    </div>
-</div>
-{% endif %}
-
-<!-- JSON DATA (SAFE) -->
-<script id="graph-data" type="application/json">
-{{ graph_data_json | safe }}
-</script>
-
-<script id="individual-data" type="application/json">
-{{ individual_data_json | safe }}
-</script>
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-
-    if (!document.getElementById("graph-data")) return;
-
-    const graphData = JSON.parse(
-        document.getElementById("graph-data").textContent
-    );
-
-    const individualData = JSON.parse(
-        document.getElementById("individual-data").textContent
-    );
-
-    new Chart(document.getElementById("dailyChart"), {
-        type: "line",
-        data: {
-            labels: graphData.dates,
-            datasets: [
-                {
-                    label: "Avg Temperature",
-                    data: graphData.avg_temp,
-                    borderColor: "#e53935",
-                    backgroundColor: "rgba(229,57,53,0.15)",
-                    tension: 0.4,
-                    fill: true
-                },
-                {
-                    label: "Avg Humidity",
-                    data: graphData.avg_humidity,
-                    borderColor: "#3f51b5",
-                    backgroundColor: "rgba(63,81,181,0.15)",
-                    tension: 0.4,
-                    fill: true
-                }
-            ]
+                    Plotly.newPlot('graph', [trace1, trace2]);
+                });
         }
-    });
 
-    new Chart(document.getElementById("tempChart"), {
-        type: "line",
-        data: {
-            labels: individualData.time,
-            datasets: [{
-                label: "Temperature",
-                data: individualData.temperature,
-                borderColor: "#e53935",
-                backgroundColor: "rgba(229,57,53,0.15)",
-                tension: 0.4,
-                fill: true
-            }]
-        }
-    });
-
-    new Chart(document.getElementById("humidityChart"), {
-        type: "line",
-        data: {
-            labels: individualData.time,
-            datasets: [{
-                label: "Humidity",
-                data: individualData.humidity,
-                borderColor: "#3f51b5",
-                backgroundColor: "rgba(63,81,181,0.15)",
-                tension: 0.4,
-                fill: true
-            }]
-        }
-    });
-
-});
-</script>
-<script>
-setInterval(() => {
-    fetch("/iot")
-        .then(res => res.text())
-        .then(html => {
-            const temp = new DOMParser()
-                .parseFromString(html, "text/html")
-                .querySelector(".metric-value");
-
-            location.reload();
-        });
-}, 10000); // refresh every 10 sec
-</script>
-
-
-
+        setInterval(fetchData, 5000); // fetch every 5 seconds
+        fetchData();
+    </script>
 </body>
 </html>
+
